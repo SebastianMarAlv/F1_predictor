@@ -1,10 +1,8 @@
 from selenium import webdriver
 from selenium.webdriver import ActionChains
-from selenium.webdriver.common import keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from cookie_parser import parse_all
 from time import sleep
 
 
@@ -16,25 +14,6 @@ class F1Scrapper:
         self.f_driver.get(F1Scrapper.url)
         self.original_window = self.f_driver.current_window_handle
         self.__title_block = self.__get_title_block()
-
-    def __load_google_cookies(self):
-        self.f_driver.delete_all_cookies()
-        cookies = parse_all()
-
-        def insert_c(site: str):
-            for cookie in cookies:
-                try:
-                    self.f_driver.add_cookie(cookie)
-                except Exception as e:
-                    print(cookie)
-                    self.f_driver.close()
-                    raise e
-        insert_c('https://accounts.google.com')
-        self.f_driver.get('https://google.com')
-        sleep(4)
-        insert_c('https://google.com')
-        sleep(1)
-        self.f_driver.refresh()
 
     def login(self):
         google_login_btt = self.__wait(
@@ -50,16 +29,49 @@ class F1Scrapper:
             if window_handle != self.original_window:
                 self.f_driver.switch_to.window(window_handle)
                 break
-        sleep(6)
-        self.__load_google_cookies()
-        print('cookies_loaded')
-        # text_input = self.__wait(
-        #     self.f_driver,
-        #     lambda d: d.find_element(By.TAG_NAME, 'input')
-        # )
-        # ActionChains(self.f_driver)\
-        #     .send_keys_to_element(text_input, "elsiu")\
-        #     .perform()
+        sleep(3)
+        text_input = self.__wait(
+            self.f_driver,
+            lambda d: d.find_element(By.TAG_NAME, 'input')
+        )
+
+        ActionChains(self.f_driver)\
+            .send_keys_to_element(text_input, "a01632483@tec.mx")\
+            .perform()
+
+        possible_buttons = self.__wait(
+            self.f_driver,
+            lambda d: d.find_elements(By.TAG_NAME, 'button')
+        )
+
+        for button in possible_buttons:
+            if button.text == 'Siguiente':
+                real_button = button
+                real_button.click()
+                break
+        sleep(3)
+        user_input = self.__wait(
+            self.f_driver,
+            lambda d: d.find_element(By.ID, 'Ecom_User_ID')
+        )
+        ActionChains(self.f_driver) \
+            .send_keys_to_element(user_input, "a01632483") \
+            .perform()
+        sleep(2)
+        pass_input = self.__wait(
+            self.f_driver,
+            lambda d: d.find_element(By.ID, 'Ecom_Password')
+        )
+        ActionChains(self.f_driver) \
+            .send_keys_to_element(pass_input, "") \
+            .perform()
+        self.__wait(
+            self.f_driver,
+            lambda d: d.find_element(By.ID, 'submitButton')
+        ).click()
+        sleep(3)
+        self.f_driver.switch_to.window(self.original_window)
+        sleep(1)
 
     def __wait(self, _element, function, time=10):
         try:
