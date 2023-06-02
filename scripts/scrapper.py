@@ -12,6 +12,7 @@ class F1Scrapper:
     def __init__(self):
         self.f_driver = webdriver.Firefox()
         self.f_driver.get(F1Scrapper.url)
+        self.f_driver.maximize_window()
         self.original_window = self.f_driver.current_window_handle
         self.__title_block = self.__get_title_block()
 
@@ -63,7 +64,7 @@ class F1Scrapper:
             lambda d: d.find_element(By.ID, 'Ecom_Password')
         )
         ActionChains(self.f_driver) \
-            .send_keys_to_element(pass_input, "") \
+            .send_keys_to_element(pass_input, "K7MggqtPbFpA'nX|") \
             .perform()
         self.__wait(
             self.f_driver,
@@ -114,7 +115,62 @@ class F1Scrapper:
         self.__wait(self.__title_block, EC.visibility_of(race_list_block))
         races_links = race_list_block.find_elements(By.TAG_NAME, 'a')
         races_links[0].click()
+        # at singapore 2011 laps are enabled
+
+    def get_current_lap_info(self):
+        sleep(10)
+        print('searching')
+        wrap = self.__wait(
+            self.f_driver,
+            lambda d: d.find_element(By.ID, 'wrap'),
+            45
+        )
+        print('wrap done')
+        main_holder = self.__wait(
+            wrap,
+            lambda d: d.find_element(By.ID, 'main_holder'),
+            45
+        )
+        print('main_holder done')
+        main_left_holder = self.__wait(
+            main_holder,
+            lambda d: d.find_element(By.ID, 'main_left_holder'),
+            45
+        )
+        print('main_left_holder done')
+        stats_block = self.__wait(
+            main_left_holder,
+            lambda d: d.find_element(By.ID, 'stats_block'),
+            45
+        )
+        print('stats_block done')
+        stats_table = self.__wait(
+            stats_block,
+            lambda d: d.find_element(By.CLASS_NAME, 'stats_table'),
+            45
+        )
+        print('stats_table done')
+        print(stats_table.text)
+        for i in range(1 + 21):
+            stats_div = self.__wait(
+                stats_table,
+                lambda d: d.find_element(By.ID, f'stats_d_{0 if i < 10 else ""}{i}')
+            )
+            print(stats_div.text)
+            elements = [
+                'pos',
+                'nick',
+                'gap'
+            ]
+            for element in elements:
+                val = self.__wait(
+                    stats_div,
+                    lambda d: d.find_element(By.ID, f'i_{0 if i < 10 else ""}{i}_{element}')
+                ).text
+                print(val)
 
 
 scrapper = F1Scrapper()
 scrapper.login()
+scrapper.run()
+scrapper.get_current_lap_info()
