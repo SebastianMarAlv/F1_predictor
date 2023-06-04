@@ -1,3 +1,10 @@
 scripts/data/cookies.json
 scripts/geckodriver.log
 scripts/venv
+/.idea/.gitignore
+/.idea/discord.xml
+/.idea/F1_predictor.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/vcs.xml
