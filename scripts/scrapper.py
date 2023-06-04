@@ -55,6 +55,7 @@ class F1Scrapper:
         user_input = self.__wait(lambda d: d.find_element(By.ID, 'Ecom_User_ID'), 60)
         pass_input = self.__wait(lambda d: d.find_element(By.ID, 'Ecom_Password'))
         submit_button = self.__wait(lambda d: d.find_element(By.ID, 'submitButton'))
+        sleep(0.5)
         ActionChains(self.f_driver) \
             .send_keys_to_element(user_input, "a01632483") \
             .send_keys_to_element(pass_input, "K7MggqtPbFpA'nX|") \
@@ -81,7 +82,7 @@ class F1Scrapper:
         )
 
     def __wait_for_visibility(self, _race_list_block):
-        self.__wait(self.f_driver, EC.visibility_of(_race_list_block))
+        self.__wait(EC.visibility_of(_race_list_block))
         ActionChains(self.f_driver) \
             .move_to_element(_race_list_block) \
             .perform()
@@ -108,7 +109,6 @@ class F1Scrapper:
                 if link_year == 2011 and race_name not in useful_cities_2011:
                     continue
                 link_list[link_year].append(race_name)
-                print(f'year: {link_year}, race: {race_name}')
         self.__link_list = link_list
 
     @staticmethod
@@ -142,18 +142,26 @@ class F1Scrapper:
                     .until(lambda d: d.find_elements(By.TAG_NAME, 'a'))
                 self.__find_current_race(race, races_links).click()
                 print('success!')
-                sleep(60)
+                # Make sure the page has loaded
+                sleep(2)
+                self.f_driver.refresh()  # Sometimes refresh is needed for correct login
+                self.__wait(lambda d: d.find_element(By.ID, 'detailedinfo_block'))
                 # self.__scrape_lap()
+                home_btn = self.__wait(lambda d: d.find_element(By.ID, 'stats_si_home').find_element(By.TAG_NAME, 'a'))
+                home_btn.click()
+                self.__wait(lambda d: d.find_element(By.ID, 'mname_tb'))
 
     def __scrape_lap(self):
-        select_ele = self.__wait(lambda d: d.find_element(By.ID, 'replay_laps_select'))
-        select = Select(select_ele)
-        for opt in select.options:
-            if int(opt.text) < 3:
-                continue
-            opt.click()
-            sleep(0.5)
-            self.__get_current_lap_info()
+        sleep(1)
+        pass
+        # select_ele = self.__wait(lambda d: d.find_element(By.ID, 'replay_laps_select'))
+        # select = Select(select_ele)
+        # for opt in select.options:
+        #     if int(opt.text) < 3:
+        #         continue
+        #     opt.click()
+        #     sleep(0.5)
+        #     self.__get_current_lap_info()
 
     def __get_current_lap_info(self):
         elements = ['pos', 'nick', 'gap']
