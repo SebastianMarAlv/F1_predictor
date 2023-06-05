@@ -4,6 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import pandas as pd
 from time import sleep
 
 
@@ -76,10 +77,8 @@ class F1Scrapper:
         return self.__wait(lambda d: d.find_element(By.ID, 'sel_session_tb'))
 
     def __get_season_list(self):
-        return self.__wait(
-            lambda d: d.find_element(By.ID, 'sel_season_tb')
-            .find_elements(By.TAG_NAME, 'a')
-        )
+        season_driver = self.__wait(lambda d: d.find_element(By.ID, 'sel_season_tb'))
+        return WebDriverWait(season_driver, timeout=20).until(lambda d: d.find_elements(By.TAG_NAME, 'a'))
 
     def __wait_for_visibility(self, _race_list_block):
         self.__wait(EC.visibility_of(_race_list_block))
@@ -114,6 +113,7 @@ class F1Scrapper:
     @staticmethod
     def __find_current_link(_year, _season_list):
         for link in _season_list:
+            print(f'..{link.text}')
             link_year = int(link.text)
             if _year == link_year:
                 return link
@@ -141,39 +141,71 @@ class F1Scrapper:
                 races_links = WebDriverWait(race_list_block, timeout=10)\
                     .until(lambda d: d.find_elements(By.TAG_NAME, 'a'))
                 self.__find_current_race(race, races_links).click()
-                print('success!')
                 # Make sure the page has loaded
                 sleep(2)
                 self.f_driver.refresh()  # Sometimes refresh is needed for correct login
                 self.__wait(lambda d: d.find_element(By.ID, 'detailedinfo_block'))
-                # self.__scrape_lap()
+                self.__scrape_race(year, race)
+
                 home_btn = self.__wait(lambda d: d.find_element(By.ID, 'stats_si_home').find_element(By.TAG_NAME, 'a'))
                 home_btn.click()
                 self.__wait(lambda d: d.find_element(By.ID, 'mname_tb'))
 
-    def __scrape_lap(self):
-        sleep(1)
-        pass
-        # select_ele = self.__wait(lambda d: d.find_element(By.ID, 'replay_laps_select'))
-        # select = Select(select_ele)
-        # for opt in select.options:
-        #     if int(opt.text) < 3:
-        #         continue
-        #     opt.click()
-        #     sleep(0.5)
-        #     self.__get_current_lap_info()
+    def __get_num_racers(self):
+        for i in range(30, 0, -1):
+            driver = self.__wait(lambda d: d.find_element(By.ID, f'stats_d_{0 if i < 10 else ""}{i}'))
+            if driver.is_displayed():
+                return i
 
-    def __get_current_lap_info(self):
-        elements = ['pos', 'nick', 'gap']
-        for i in range(1, 21):
-            print(f'getting: stats_d_{0 if i < 10 else ""}{i}')
+    def __scrape_race(self, year, race):
+        def check_if_diff_lap(_last_lap):
+            return lambda d: d.find_element(By.ID, 'i_01_lap').text != _last_lap
+
+        select_ele = self.__wait(lambda d: d.find_element(By.ID, 'replay_laps_select'))
+        select = Select(select_ele)
+
+        race_dt = pd.DataFrame()
+
+        first_lap = True
+        last_lap = None
+        num_drivers = None
+        for opt in select.options:
+            if int(opt.text) < 3:
+                continue
+            print(f'Current lap: {opt.text}')
+            opt.click()
+            if not first_lap:
+                self.__wait(check_if_diff_lap(last_lap), 600)
+            else:
+                first_lap = False
+                stats_ele = self.__wait(lambda d: d.find_element(By.ID, 'stats_d_01'))
+                self.__wait(EC.visibility_of(stats_ele), 20)
+                num_drivers = self.__get_num_racers()
+            lap_dt = self.__get_current_lap_info(num_drivers, int(opt.text))
+            race_dt = pd.concat([race_dt, lap_dt])
+            last_lap = self.__wait(lambda d: d.find_element(By.ID, 'i_01_lap')).text
+        race_dt.to_csv(f'data/{year}-{race}')
+
+    def __get_current_lap_info(self, num_drivers, snap_num):
+        elements = ['snap_num', 'pos', 'nick', 'lap', 'gap']
+        lap_dt = {}
+        for ele in elements:
+            lap_dt[ele] = []
+
+        for i in range(1, num_drivers + 1):
             print(f'Driver i: {i}')
             for element in elements:
-                val = self.__wait(lambda d: d.find_element(By.ID, f'i_{0 if i < 10 else ""}{i}_{element}')).text
-                print(f"\t{element}: {val}")
+                if element == 'snap_num':
+                    lap_dt[element].append(snap_num)
+                else:
+                    ele_id = f'i_{0 if i < 10 else ""}{i}_{element}'
+                    val = self.__wait(lambda d: d.find_element(By.ID, ele_id)).text
+                    lap_dt[element].append(val)
+                    # print(f"\t{element}: {val}")
+        lap_dt = pd.DataFrame(lap_dt)
+        return lap_dt
 
 
 scrapper = F1Scrapper()
 scrapper.login()
-sleep(1)
 scrapper.run()
