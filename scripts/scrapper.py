@@ -6,7 +6,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 from time import sleep
-
+from os.path import exists
 
 class F1Scrapper:
     url = 'https://f1.tfeed.net/'
@@ -137,7 +137,7 @@ class F1Scrapper:
                 F1Scrapper.__find_current_link(year, season_list).click()
 
                 self.__wait_for_visibility(race_list_block)
-
+                sleep(0.5)
                 races_links = WebDriverWait(race_list_block, timeout=10)\
                     .until(lambda d: d.find_elements(By.TAG_NAME, 'a'))
                 self.__find_current_race(race, races_links).click()
@@ -145,11 +145,17 @@ class F1Scrapper:
                 sleep(5)  # For some reason will not work without this
                 self.f_driver.refresh()  # Sometimes refresh is needed for correct login
                 self.__wait(lambda d: d.find_element(By.ID, 'detailedinfo_block'))
-                self.__scrape_race(year, race)
+
+                if not exists(f'data/{year}-{race}.csv'):
+                    print(f'Scrapping data/{year}-{race}.csv alredy exists')
+                    self.__scrape_race(year, race)
+                else:
+                    print(f'data/{year}-{race}.csv alredy exists, skipped')
 
                 home_btn = self.__wait(lambda d: d.find_element(By.ID, 'stats_si_home').find_element(By.TAG_NAME, 'a'))
                 home_btn.click()
                 self.__wait(lambda d: d.find_element(By.ID, 'mname_tb'))
+                sleep(1)
 
     def __get_num_racers(self):
         for i in range(30, 0, -1):
@@ -185,7 +191,7 @@ class F1Scrapper:
             lap_dt = self.__get_current_lap_info(num_drivers, int(opt.text))
             race_dt = pd.concat([race_dt, lap_dt])
             last_lap = self.__wait(lambda d: d.find_element(By.ID, 'i_01_lap')).text
-        race_dt.to_csv(f'data/{year}-{race}')
+        race_dt.to_csv(f'data/{year}-{race}.csv')
 
     def __get_current_lap_info(self, num_drivers, snap_num):
         elements = ['snap_num', 'pos', 'nick', 'lap', 'gap']
@@ -194,7 +200,6 @@ class F1Scrapper:
             lap_dt[ele] = []
 
         for i in range(1, num_drivers + 1):
-            print(f'Driver i: {i}')
             for element in elements:
                 if element == 'snap_num':
                     lap_dt[element].append(snap_num)
