@@ -113,7 +113,6 @@ class F1Scrapper:
     @staticmethod
     def __find_current_link(_year, _season_list):
         for link in _season_list:
-            print(f'..{link.text}')
             link_year = int(link.text)
             if _year == link_year:
                 return link
@@ -131,6 +130,7 @@ class F1Scrapper:
         self.__link_list: dict[list[str]]
         for year in self.__link_list.keys():
             for race in self.__link_list[year]:
+                sleep(2)
                 # Get blocks from current DOM
                 race_list_block = self.__get_race_list()
                 season_list = self.__get_season_list()
@@ -142,7 +142,7 @@ class F1Scrapper:
                     .until(lambda d: d.find_elements(By.TAG_NAME, 'a'))
                 self.__find_current_race(race, races_links).click()
                 # Make sure the page has loaded
-                sleep(2)
+                sleep(5)  # For some reason will not work without this
                 self.f_driver.refresh()  # Sometimes refresh is needed for correct login
                 self.__wait(lambda d: d.find_element(By.ID, 'detailedinfo_block'))
                 self.__scrape_race(year, race)
@@ -169,8 +169,9 @@ class F1Scrapper:
         first_lap = True
         last_lap = None
         num_drivers = None
+        last_item = select.options[-1]
         for opt in select.options:
-            if int(opt.text) < 3:
+            if int(opt.text) < 3 or opt == last_item:
                 continue
             print(f'Current lap: {opt.text}')
             opt.click()
