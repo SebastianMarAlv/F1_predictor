@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.common import TimeoutException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
@@ -7,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 from time import sleep
 from os.path import exists
+
 
 class F1Scrapper:
     url = 'https://f1.tfeed.net/'
@@ -130,32 +132,32 @@ class F1Scrapper:
         self.__link_list: dict[list[str]]
         for year in self.__link_list.keys():
             for race in self.__link_list[year]:
-                sleep(2)
-                # Get blocks from current DOM
-                race_list_block = self.__get_race_list()
-                season_list = self.__get_season_list()
-                F1Scrapper.__find_current_link(year, season_list).click()
-
-                self.__wait_for_visibility(race_list_block)
-                sleep(0.5)
-                races_links = WebDriverWait(race_list_block, timeout=10)\
-                    .until(lambda d: d.find_elements(By.TAG_NAME, 'a'))
-                self.__find_current_race(race, races_links).click()
-                # Make sure the page has loaded
-                sleep(5)  # For some reason will not work without this
-                self.f_driver.refresh()  # Sometimes refresh is needed for correct login
-                self.__wait(lambda d: d.find_element(By.ID, 'detailedinfo_block'))
-
                 if not exists(f'data/{year}-{race}.csv'):
-                    print(f'Scrapping data/{year}-{race}.csv alredy exists')
-                    self.__scrape_race(year, race)
-                else:
-                    print(f'data/{year}-{race}.csv alredy exists, skipped')
+                    print(f'Scrapping data/{year}-{race}.csv')
+                    # Get blocks from current DOM
+                    sleep(3)
+                    race_list_block = self.__get_race_list()
+                    season_list = self.__get_season_list()
+                    sleep(2)
 
-                home_btn = self.__wait(lambda d: d.find_element(By.ID, 'stats_si_home').find_element(By.TAG_NAME, 'a'))
-                home_btn.click()
-                self.__wait(lambda d: d.find_element(By.ID, 'mname_tb'))
-                sleep(1)
+                    F1Scrapper.__find_current_link(year, season_list).click()
+
+                    self.__wait_for_visibility(race_list_block)
+                    sleep(0.5)
+                    races_links = WebDriverWait(race_list_block, timeout=10) \
+                        .until(lambda d: d.find_elements(By.TAG_NAME, 'a'))
+                    self.__find_current_race(race, races_links).click()
+                    # Make sure the page has loaded
+                    sleep(5)  # For some reason will not work without this
+
+                    self.__scrape_race(year, race)
+                    home_btn = self.__wait(lambda d: d.find_element(By.ID, 'stats_si_home')
+                                           .find_element(By.TAG_NAME, 'a'))
+                    home_btn.click()
+                    self.__wait(lambda d: d.find_element(By.ID, 'mname_tb'))
+                    sleep(1)
+                else:
+                    print(f'data/{year}-{race}.csv already exists, skipped')
 
     def __get_num_racers(self):
         for i in range(30, 0, -1):
@@ -169,20 +171,22 @@ class F1Scrapper:
 
         select_ele = self.__wait(lambda d: d.find_element(By.ID, 'replay_laps_select'))
         select = Select(select_ele)
-
         race_dt = pd.DataFrame()
 
         first_lap = True
         last_lap = None
         num_drivers = None
         last_item = select.options[-1]
-        for opt in select.options:
-            if int(opt.text) < 3 or opt == last_item:
+        options = select.options[3:]
+        for opt in options:
+            if opt == last_item:
                 continue
-            print(f'Current lap: {opt.text}')
+            print(f'Current lap: {opt.text} / {last_item.text}')
             opt.click()
             if not first_lap:
-                self.__wait(check_if_diff_lap(last_lap), 600)
+                sleep(3)
+                if not check_if_diff_lap(last_lap):
+                    sleep(1)
             else:
                 first_lap = False
                 stats_ele = self.__wait(lambda d: d.find_element(By.ID, 'stats_d_01'))
@@ -191,10 +195,11 @@ class F1Scrapper:
             lap_dt = self.__get_current_lap_info(num_drivers, int(opt.text))
             race_dt = pd.concat([race_dt, lap_dt])
             last_lap = self.__wait(lambda d: d.find_element(By.ID, 'i_01_lap')).text
+        print(f'data/{year}-{race}.csv done!')
         race_dt.to_csv(f'data/{year}-{race}.csv')
 
     def __get_current_lap_info(self, num_drivers, snap_num):
-        elements = ['snap_num', 'pos', 'nick', 'lap', 'gap']
+        elements = ['snap_num', 'pos', 'nick', 'lap', 'gap', 'int', 'pits', 't']
         lap_dt = {}
         for ele in elements:
             lap_dt[ele] = []
